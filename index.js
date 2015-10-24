@@ -5,14 +5,13 @@ var async = require('async');
 var isBinaryFile = require('isbinaryfile');
 var ShopifyApi = require('shopify-api');
 var PluginError = gutil.PluginError;
+var fs = require('fs');
 
-// Set up shopify API information
-var shopify = {};
-shopify._api = false;
-shopify._basePath = false;
-
-// Store the connection here
-var shopifyAPI;
+function Shopify() {
+  this._api = false;
+  this._basePath = false;
+}
+var shopify = Shopify.prototype;
 
 // consts
 const PLUGIN_NAME = 'gulp-shopify-upload';
@@ -22,8 +21,8 @@ const PLUGIN_NAME = 'gulp-shopify-upload';
  *
  * @return {ShopifyApi}
  */
-shopify._getApi = function(apiKey, password, host) {
-  if (!shopify._api) {
+shopify._setApi = function(apiKey, password, host) {
+  if (!this._api) {
       var opts = {
           auth: apiKey + ':' + password,
           host: host,
@@ -31,10 +30,10 @@ shopify._getApi = function(apiKey, password, host) {
           timeout: 120000
       };
 
-      shopify._api = new ShopifyApi(opts);
+      this._api = new ShopifyApi(opts);
   }
 
-  return shopify._api;
+  return this._api;
 };
 
 /*
@@ -49,7 +48,7 @@ shopify._getApi = function(apiKey, password, host) {
 * @return {string}
 */
 shopify._makeAssetKey = function(filepath, base) {
-  filepath = shopify._makePathRelative(filepath, base);
+  filepath = this._makePathRelative(filepath, base);
 
   return encodeURI(filepath);
 };
@@ -60,13 +59,13 @@ shopify._makeAssetKey = function(filepath, base) {
 * @return {string}
 */
 shopify._getBasePath = function(filebase) {
-  if (!shopify._basePath) {
+  if (!this._basePath) {
       var base = filebase;
 
-      shopify._basePath = (base.length > 0) ? path.resolve(base) : process.cwd();
+      this._basePath = (base.length > 0) ? path.resolve(base) : process.cwd();
   }
 
-  return shopify._basePath;
+  return this._basePath;
 };
 
 /**
@@ -76,7 +75,7 @@ shopify._getBasePath = function(filebase) {
  * @return {void}
  */
 shopify._setBasePath = function(basePath) {
-  shopify._basePath = basePath;
+  this._basePath = basePath;
 };
 
 /**
@@ -86,7 +85,7 @@ shopify._setBasePath = function(basePath) {
 * @return {string}
 */
 shopify._makePathRelative = function(filepath, base) {
-  var basePath = shopify._getBasePath(base);
+  var basePath = this._getBasePath(base);
 
   filepath = path.relative(basePath, filepath);
 
@@ -105,7 +104,7 @@ shopify._setOptions = function(options) {
   }
 
   if(options.hasOwnProperty("basePath")){
-    shopify._setBasePath(options.basePath);
+    this._setBasePath(options.basePath);
   }
 };
 
@@ -126,9 +125,9 @@ shopify._setOptions = function(options) {
  */
 shopify.upload = function(filepath, file, host, base, themeid, cb) {
 
-    var api = shopifyAPI,
+    var api = this._api,
         themeId = themeid,
-        key = shopify._makeAssetKey(filepath, base),
+        key = this._makeAssetKey(filepath, base),
         isBinary = isBinaryFile(filepath),
         props = {
             asset: {
@@ -177,9 +176,9 @@ shopify.upload = function(filepath, file, host, base, themeid, cb) {
 
 shopify.destroy = function(filepath, file, host, base, themeid, cb) {
 
-    var api = shopifyAPI,
+    var api = this._api,
         themeId = themeid,
-        key = shopify._makeAssetKey(filepath, base);
+        key = this._makeAssetKey(filepath, base);
 
     function onDestroy(err, resp) {
         if (err && err.type === 'ShopifyInvalidRequestError') {
@@ -211,9 +210,10 @@ shopify.destroy = function(filepath, file, host, base, themeid, cb) {
 // plugin level function (dealing with files)
 function gulpShopifyUpload(apiKey, password, host, themeid, options) {
 
+  var shopify = new Shopify();
   // Set up the API
   shopify._setOptions(options);
-  shopifyAPI = shopify._getApi(apiKey, password, host);
+  shopify._setApi(apiKey, password, host);
 
   gutil.log('Ready to upload to ' + gutil.colors.magenta(host));
 
